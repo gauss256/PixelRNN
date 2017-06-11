@@ -5,6 +5,7 @@ arxiv.org/pdf/1601.06759
 Copyright Shir Gur, 2016
 me@gurshir.com
 """
+# pylint: disable=C0103,C0301,C0111,E0401,E1102
 
 
 import theano
@@ -34,7 +35,7 @@ class PixelRNN(object):
         self.batch_size = 10
 
         self.h = 300
-        self.h_2 = self.h//2
+        self.h_2 = self.h // 2
 
         rms = RMSprop(lr=(1e-6), clipnorm=1)
         self.optimizer = rms
@@ -61,7 +62,7 @@ class PixelRNN(object):
             self.Xtrain = self.Xtrain[:-self.extra]
 
         Ytrain = self.Xtrain.copy()
-        self.Xtrain[:,:,:,-self.margin:] = 0
+        self.Xtrain[:, :, :, -self.margin:] = 0
 
         RGB_Shapr = (np.shape(self.Xtrain)[0], np.shape(self.Xtrain)[2], np.shape(self.Xtrain)[3], 256)
         RGB_Shapr_train = (np.shape(self.Xtrain)[0], np.shape(self.Xtrain)[2]*np.shape(self.Xtrain)[3], 256)
@@ -74,31 +75,33 @@ class PixelRNN(object):
                 for i in range(self.img_rows):
                     for k in range(self.img_cols):
                         if j == 0:
-                            self.Rtrain[s, i, k, Ytrain[s,j,i,k]] = 1
+                            self.Rtrain[s, i, k, Ytrain[s, j, i, k]] = 1
                         elif j == 1:
-                            self.Gtrain[s, i, k, Ytrain[s,j,i,k]] = 1
+                            self.Gtrain[s, i, k, Ytrain[s, j, i, k]] = 1
                         else:
-                            self.Btrain[s, i, k, Ytrain[s,j,i,k]] = 1
+                            self.Btrain[s, i, k, Ytrain[s, j, i, k]] = 1
 
-        self.Rtrain = np.reshape(self.Rtrain,RGB_Shapr_train)
-        self.Gtrain = np.reshape(self.Gtrain,RGB_Shapr_train)
-        self.Btrain = np.reshape(self.Btrain,RGB_Shapr_train)
+        self.Rtrain = np.reshape(self.Rtrain, RGB_Shapr_train)
+        self.Gtrain = np.reshape(self.Gtrain, RGB_Shapr_train)
+        self.Btrain = np.reshape(self.Btrain, RGB_Shapr_train)
 
-    def build_net_DiagLSTM(self, load_weights = False):
+    def build_net_DiagLSTM(self, load_weights=False):
 
         img = Input(batch_shape=(10, self.img_channels, self.img_rows, self.img_cols), name='input_img')
 
-        model_in = MaskedConvolution2D(self.h,7,7,mask_type='a', direction='Right', border_mode='same', init='he_uniform')(img)
+        model_in = MaskedConvolution2D(self.h, 7, 7, mask_type='a',
+                                       direction='Right', border_mode='same',
+                                       init='he_uniform')(img)
 
         for _ in range(12):
-            model_LSTM_F = DiagLSTM(self.h_2,3, return_sequences=True, init='he_uniform', inner_init='he_uniform', direction='Right')(model_in)
-            model_LSTM_B = DiagLSTM(self.h_2,3, return_sequences=True, init='he_uniform', inner_init='he_uniform', direction='Right', reverse=True)(model_in)
+            model_LSTM_F = DiagLSTM(self.h_2, 3, return_sequences=True, init='he_uniform', inner_init='he_uniform', direction='Right')(model_in)
+            model_LSTM_B = DiagLSTM(self.h_2, 3, return_sequences=True, init='he_uniform', inner_init='he_uniform', direction='Right', reverse=True)(model_in)
             model_LSTM = merge([model_LSTM_F, model_LSTM_B], mode='sum')
-            model_per = Convolution2D(self.h,1,1, init='he_normal')(model_LSTM)
+            model_per = Convolution2D(self.h, 1, 1, init='he_normal')(model_LSTM)
             model_in = merge([model_in, model_per], mode='sum')
 
-        model_out = MaskedConvolution2D(self.h,1,1,mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_in)
-        model_out = MaskedConvolution2D(256*3,1,1,mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_out)
+        model_out = MaskedConvolution2D(self.h, 1, 1, mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_in)
+        model_out = MaskedConvolution2D(256 * 3, 1, 1, mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_out)
 
         Red = GetColors(0)(model_out)
         Green = GetColors(1)(model_out)
@@ -115,27 +118,38 @@ class PixelRNN(object):
 
         print("Compiling...")
         Col_Model.compile(optimizer=self.optimizer,
-                              loss={'Red_out': image_categorical_crossentropy,
-                                    'Green_out': image_categorical_crossentropy,
-                                    'Blue_out': image_categorical_crossentropy},
-                              metrics={'Red_out': 'accuracy',
-                                       'Green_out': 'accuracy',
-                                       'Blue_out': 'accuracy'})
+                          loss={'Red_out': image_categorical_crossentropy,
+                                'Green_out': image_categorical_crossentropy,
+                                'Blue_out': image_categorical_crossentropy},
+                          metrics={'Red_out': 'accuracy',
+                                   'Green_out': 'accuracy',
+                                   'Blue_out': 'accuracy'})
         self.comp_net = Col_Model
 
-    def build_net_PyramidSTM(self, load_weights = False):
+    def build_net_PyramidSTM(self, load_weights=False):
+        """PyramidSTM should be called Row LSTM"""
 
+        # Input layer
         img = Input(batch_shape=(10, self.img_channels, self.img_rows, self.img_cols), name='input_img')
 
-        model_in = MaskedConvolution2D(self.h,7,7,mask_type='a', direction='Right', border_mode='same', init='he_uniform', W_regularizer=l2(0.0005))(img)
+        model_in = MaskedConvolution2D(
+            nb_filter=self.h,
+            nb_row=7,
+            nb_col=7,
+            mask_type='a',
+            direction='Right',
+            border_mode='same',
+            init='he_uniform',
+            W_regularizer=l2(0.0005)
+        )(img)
 
         for _ in range(12):
-            model_LSTM = PyramidSTM(self.h_2,3, return_sequences=True, init='he_uniform', inner_init='he_uniform', direction='Right', W_regularizer=l2(0.0005))(model_in)
-            model_per = Convolution2D(self.h,1,1, init='he_normal')(model_LSTM)
+            model_LSTM = PyramidSTM(self.h_2, 3, return_sequences=True, init='he_uniform', inner_init='he_uniform', direction='Right', W_regularizer=l2(0.0005))(model_in)
+            model_per = Convolution2D(self.h, 1, 1, init='he_normal')(model_LSTM)
             model_in = merge([model_in, model_per], mode='sum')
 
-        model_out = MaskedConvolution2D(self.h,1,1,mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform', W_regularizer=l2(0.0005))(model_in)
-        model_out = MaskedConvolution2D(256*3,1,1,mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform', W_regularizer=l2(0.0005))(model_out)
+        model_out = MaskedConvolution2D(self.h, 1, 1, mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform', W_regularizer=l2(0.0005))(model_in)
+        model_out = MaskedConvolution2D(256 * 3, 1, 1, mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform', W_regularizer=l2(0.0005))(model_out)
 
         Red = GetColors(0)(model_out)
         Green = GetColors(1)(model_out)
@@ -151,26 +165,32 @@ class PixelRNN(object):
             Col_Model.load_weights('Data/comp_model.h5')
 
         print("Compiling...")
-        Col_Model.compile(optimizer=self.optimizer,
-                              loss={'Red_out': image_categorical_crossentropy,
-                                    'Green_out': image_categorical_crossentropy,
-                                    'Blue_out': image_categorical_crossentropy},
-                              metrics={'Red_out': 'accuracy',
-                                       'Green_out': 'accuracy',
-                                       'Blue_out': 'accuracy'})
+        Col_Model.compile(
+            optimizer=self.optimizer,
+            loss={
+                'Red_out': image_categorical_crossentropy,
+                'Green_out': image_categorical_crossentropy,
+                'Blue_out': image_categorical_crossentropy
+            },
+            metrics={
+                'Red_out': 'accuracy',
+                'Green_out': 'accuracy',
+                'Blue_out': 'accuracy'
+            }
+        )
         self.comp_net = Col_Model
 
-    def build_net_CNN(self, load_weights = False):
+    def build_net_CNN(self, load_weights=False):
 
         img = Input(batch_shape=(10, self.img_channels, self.img_rows, self.img_cols), name='input_img')
 
-        model_in = MaskedConvolution2D(self.h,7,7,mask_type='a', direction='Right', border_mode='same', init='he_uniform')(img)
+        model_in = MaskedConvolution2D(self.h, 7, 7, mask_type='a', direction='Right', border_mode='same', init='he_uniform')(img)
 
         for _ in range(15):
-            model_in = MaskedConvolution2D(self.h,3,3,mask_type='b', direction='Right', border_mode='same', init='he_uniform')(model_in)
+            model_in = MaskedConvolution2D(self.h, 3, 3, mask_type='b', direction='Right', border_mode='same', init='he_uniform')(model_in)
 
-        model_out = MaskedConvolution2D(self.h,1,1,mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_in)
-        model_out = MaskedConvolution2D(256*3,1,1,mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_out)
+        model_out = MaskedConvolution2D(self.h, 1, 1, mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_in)
+        model_out = MaskedConvolution2D(256 * 3, 1, 1, mask_type='b', direction='Right', border_mode='same', activation='relu', init='he_uniform')(model_out)
 
         Red = GetColors(0)(model_out)
         Green = GetColors(1)(model_out)
@@ -187,12 +207,12 @@ class PixelRNN(object):
 
         print("Compiling...")
         Col_Model.compile(optimizer=self.optimizer,
-                              loss={'Red_out': image_categorical_crossentropy,
-                                    'Green_out': image_categorical_crossentropy,
-                                    'Blue_out': image_categorical_crossentropy},
-                              metrics={'Red_out': 'accuracy',
-                                       'Green_out': 'accuracy',
-                                       'Blue_out': 'accuracy'})
+                          loss={'Red_out': image_categorical_crossentropy,
+                                'Green_out': image_categorical_crossentropy,
+                                'Blue_out': image_categorical_crossentropy},
+                          metrics={'Red_out': 'accuracy',
+                                   'Green_out': 'accuracy',
+                                   'Blue_out': 'accuracy'})
         self.comp_net = Col_Model
 
     def fit_net_DiagLSTM(self, batch_size=None, nb_epoch=5):
@@ -206,8 +226,7 @@ class PixelRNN(object):
                           {'Red_out':self.Rtrain[:-self.extra],
                            'Green_out':self.Gtrain[:-self.extra],
                            'Blue_out':self.Btrain[:-self.extra]},
-                  batch_size=self.batch_size, nb_epoch=nb_epoch, verbose=1,
-                          callbacks=[LearningRateScheduler(self.scd)])
+                          batch_size=self.batch_size, nb_epoch=nb_epoch, verbose=1, callbacks=[LearningRateScheduler(self.scd)])
 
         # Save weights
         print("Saving weights...")
@@ -224,7 +243,7 @@ class PixelRNN(object):
                           {'Red_out':self.Rtrain,
                            'Green_out':self.Gtrain,
                            'Blue_out':self.Btrain},
-                  batch_size=self.batch_size, nb_epoch=nb_epoch, verbose=1,
+                          batch_size=self.batch_size, nb_epoch=nb_epoch, verbose=1,
                           callbacks=[LearningRateScheduler(self.scd)])
 
         # Save weights
@@ -242,34 +261,40 @@ class PixelRNN(object):
                           {'Red_out':self.Rtrain[:-self.extra],
                            'Green_out':self.Gtrain[:-self.extra],
                            'Blue_out':self.Btrain[:-self.extra]},
-                  batch_size=self.batch_size, nb_epoch=nb_epoch, verbose=1,
+                          batch_size=self.batch_size, nb_epoch=nb_epoch, verbose=1,
                           callbacks=[LearningRateScheduler(self.scd)])
 
         # Save weights
         print("Saving weights...")
         self.comp_net.save_weights('Data/comp_model.h5', overwrite=True)
 
-    def scd(self,x):
+    def scd(self, x):
         if x%5 == 0:
             return float(0.1)
         if x%3 == 0:
             return float(1./x)
-        return (1e-6)
+        return 1e-6
 
 p = PixelRNN()
+#!!!
+p.build_net_PyramidSTM()
+print(p.comp_net.summary())
+exit()
+#!!!
 p.fit_net_PyramidSTM()
 
 
 predictions = p.comp_net.predict({'input_img':p.Xtrain[0:p.batch_size]})
 
 result = np.concatenate([np.reshape(np.argmax(np.reshape(
-        predictions[i][9], (p.img_rows,p.img_cols,256)),axis=-1), (p.img_rows,p.img_cols,1))
-                     .astype(dtype=p.Xtrain.dtype)
-                      for i in range(3)], axis=-1)
+    predictions[i][9], (p.img_rows, p.img_cols, 256)), axis=-1), (p.img_rows, p.img_cols, 1))
+                         .astype(dtype=p.Xtrain.dtype)
+                         for i in range(3)], axis=-1)
 
-train = np.concatenate([np.reshape(np.argmax(np.reshape(p.Rtrain[9], (p.img_rows,p.img_cols,256)),axis=-1), (p.img_rows,p.img_cols,1)).astype(dtype=p.Xtrain.dtype),
-                       np.reshape(np.argmax(np.reshape(p.Gtrain[9], (p.img_rows,p.img_cols,256)),axis=-1), (p.img_rows,p.img_cols,1)).astype(dtype=p.Xtrain.dtype),
-                       np.reshape(np.argmax(np.reshape(p.Btrain[9], (p.img_rows,p.img_cols,256)),axis=-1), (p.img_rows,p.img_cols,1)).astype(dtype=p.Xtrain.dtype)], axis=-1)
+train = np.concatenate([
+    np.reshape(np.argmax(np.reshape(p.Rtrain[9], (p.img_rows, p.img_cols, 256)), axis=-1), (p.img_rows, p.img_cols, 1)).astype(dtype=p.Xtrain.dtype),
+    np.reshape(np.argmax(np.reshape(p.Gtrain[9], (p.img_rows, p.img_cols, 256)), axis=-1), (p.img_rows, p.img_cols, 1)).astype(dtype=p.Xtrain.dtype),
+    np.reshape(np.argmax(np.reshape(p.Btrain[9], (p.img_rows, p.img_cols, 256)), axis=-1), (p.img_rows, p.img_cols, 1)).astype(dtype=p.Xtrain.dtype)], axis=-1)
 plt.figure(1)
 plt.imshow(result)
 plt.figure(2)

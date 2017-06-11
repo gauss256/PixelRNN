@@ -5,6 +5,7 @@ arxiv.org/pdf/1601.06759
 Copyright Shir Gur, 2016
 me@gurshir.com
 """
+# pylint: disable=C0200,C0301,C0103,E0401,C0111,R0913,R0914,W0201,W0613,R0902,R0201,R0912
 
 import numpy as np
 import theano
@@ -47,7 +48,7 @@ class ColRecurrent(Layer):
         else:
             return (input_shape[0], self.nb_filter, input_shape[3])
 
-    def compute_mask(self, input, mask):
+    def compute_mask(self, input, mask):  # pylint: disable=W0622
         if self.return_sequences:
             return mask
         else:
@@ -76,7 +77,7 @@ class ColRecurrent(Layer):
         # note that the .build() method of subclasses MUST define
         # self.input_spec with a complete input shape.
         input_shape = self.input_spec[0].shape
-        if K._BACKEND == 'tensorflow':
+        if K._BACKEND == 'tensorflow':  # pylint: disable=W0212
             if not input_shape[1]:
                 raise Exception('When using TensorFlow, you should define '
                                 'explicitly the number of timesteps of '
@@ -245,8 +246,8 @@ class PyramidSTM(ColRecurrent):
 
         in_third = self.input_dim//3
         out_third = self.nb_filter//3
-        mask[:out_third,in_third:,0,0] = 0
-        mask[out_third:2*out_third,2*in_third:,0,0] = 0
+        mask[:out_third, in_third:, 0, 0] = 0
+        mask[out_third:2*out_third, 2*in_third:, 0, 0] = 0
 
         W = W * mask
 
@@ -272,7 +273,7 @@ class PyramidSTM(ColRecurrent):
     def conv_step_hidden(self, x, W, border_mode="valid", filters=None, filter_shape=None):
 
         input_shape = self.shuffeled_dims
-        if filters == None:
+        if filters is None:
             filters = self.nb_filter
 
         x = K.expand_dims(x, -1)  # add a dimension of the right
@@ -299,16 +300,16 @@ class PyramidSTM(ColRecurrent):
         state_to_state = self.conv_step_hidden(h_tm1, self.U_iof, border_mode="same", filters=4*self.nb_filter, filter_shape=self.Shape1)
         gates = input_to_state + state_to_state
 
-        o_f_i =self.inner_activation(gates[:,:3*self.nb_filter,:])
-        o = o_f_i[:,0*self.nb_filter:1*self.nb_filter,:]
-        f = o_f_i[:,1*self.nb_filter:2*self.nb_filter,:]
-        i = o_f_i[:,2*self.nb_filter:3*self.nb_filter,:]
-        g = self.activation(gates[:,3*self.nb_filter:4*self.nb_filter,:])
+        o_f_i = self.inner_activation(gates[:, :3*self.nb_filter, :])
+        o = o_f_i[:, 0*self.nb_filter:1*self.nb_filter, :]
+        f = o_f_i[:, 1*self.nb_filter:2*self.nb_filter, :]
+        i = o_f_i[:, 2*self.nb_filter:3*self.nb_filter, :]
+        g = self.activation(gates[:, 3*self.nb_filter:4*self.nb_filter, :])
 
         c = (f * c_tm1) + (i * g)
         h = o * self.activation(c)
 
-        return h, [h ,c]
+        return h, [h, c]
 
     def get_config(self):
         config = {"output_dim": self.output_dim,
@@ -369,13 +370,13 @@ class DiagLSTM(ColRecurrent):
             super(DiagLSTM, self).call(X, mask)
         else:
             if self.reverse:
-                X = X[:,::-1,:,:]
+                X = X[:, ::-1, :, :]
             X = Utils.Skew(X)
             res = super(DiagLSTM, self).call(X, mask)
             unskew = Utils.Unskew(res)
 
             if self.reverse:
-                unskew = unskew[:,::-1,:,:]
+                unskew = unskew[:, ::-1, :, :]
 
             if self.direction == 'Down':
                 return K.permute_dimensions(unskew, (0, 2, 3, 1))
@@ -455,8 +456,8 @@ class DiagLSTM(ColRecurrent):
 
         in_third = self.input_dim//3
         out_third = self.nb_filter//3
-        mask[:out_third,in_third:,0,0] = 0
-        mask[out_third:2*out_third,2*in_third:,0,0] = 0
+        mask[:out_third, in_third:, 0, 0] = 0
+        mask[out_third:2*out_third, 2*in_third:, 0, 0] = 0
 
         W = W * mask
 
@@ -482,7 +483,7 @@ class DiagLSTM(ColRecurrent):
     def conv_step_hidden(self, x, W, border_mode="valid", filters=None, filter_shape=None):
 
         input_shape = self.shuffeled_dims
-        if filters == None:
+        if filters is None:
             filters = self.nb_filter
 
         x = K.expand_dims(x, -1)  # add a dimension of the right
@@ -513,16 +514,16 @@ class DiagLSTM(ColRecurrent):
         state_to_state = self.conv_step_hidden(h_tm1, self.U_iof, border_mode="same", filters=4*self.nb_filter, filter_shape=self.Shape1)
         gates = input_to_state + state_to_state
 
-        o_f_i =self.inner_activation(gates[:,:3*self.nb_filter,:])
-        o = o_f_i[:,0*self.nb_filter:1*self.nb_filter,:]
-        f = o_f_i[:,1*self.nb_filter:2*self.nb_filter,:]
-        i = o_f_i[:,2*self.nb_filter:3*self.nb_filter,:]
-        g = self.activation(gates[:,3*self.nb_filter:4*self.nb_filter,:])
+        o_f_i = self.inner_activation(gates[:, :3*self.nb_filter, :])
+        o = o_f_i[:, 0*self.nb_filter:1*self.nb_filter, :]
+        f = o_f_i[:, 1*self.nb_filter:2*self.nb_filter, :]
+        i = o_f_i[:, 2*self.nb_filter:3*self.nb_filter, :]
+        g = self.activation(gates[:, 3*self.nb_filter:4*self.nb_filter, :])
 
         c = (f * c_tm1) + (i * g)
         h = o * self.activation(c)
 
-        return h, [h ,c]
+        return h, [h, c]
 
     def get_config(self):
         config = {"output_dim": self.output_dim,
@@ -614,7 +615,7 @@ class MaskedConvolution2D(Layer):
             self.set_weights(self.initial_weights)
             del self.initial_weights
 
-    def get_output_shape_for(self, input_shape):
+    def get_output_shape_for(self, input_shape):  #!!! called compute_output_shape in Keras 2?
         if self.dim_ordering == 'th':
             rows = input_shape[2]
             cols = input_shape[3]
@@ -625,9 +626,9 @@ class MaskedConvolution2D(Layer):
             raise Exception('Invalid dim_ordering: ' + self.dim_ordering)
 
         rows = K_conv.conv_output_length(rows, self.nb_row,
-                                  self.border_mode, self.subsample[0])
+                                         self.border_mode, self.subsample[0])
         cols = K_conv.conv_output_length(cols, self.nb_col,
-                                  self.border_mode, self.subsample[1])
+                                         self.border_mode, self.subsample[1])
 
         if self.dim_ordering == 'th':
             return (input_shape[0], self.nb_filter, rows, cols)
@@ -640,32 +641,32 @@ class MaskedConvolution2D(Layer):
 
         mask = np.ones(self.W_shape, dtype=_FLOATX)
 
-        center_col = self.nb_col//2
-        center_row = self.nb_row//2
+        center_col = self.nb_col // 2
+        center_row = self.nb_row // 2
 
         if self.direction == 'Down':
             for i in range(self.nb_col):
                 for j in range(self.nb_row):
-                        if (j > center_row) or (j>i) or ((i - self.nb_col + j)>0):
-                            mask[:, :, j, i] = 0
+                    if (j > center_row) or (j > i) or ((i - self.nb_col + j) > 0):
+                        mask[:, :, j, i] = 0
         elif self.direction == 'Right':
             for i in range(self.nb_col):
                 for j in range(self.nb_row):
-                        if (i > center_col) or (i>j) or ((j - self.nb_row + i)>0):
-                            mask[:, :, j, i] = 0
+                    if (i > center_col) or (i > j) or ((j - self.nb_row + i) > 0):
+                        mask[:, :, j, i] = 0
         else:
             raise Exception('ERROR: Unknown direction')
 
 
-        in_third = self.input_dim//3
-        out_third = self.nb_filter//3
+        in_third = self.input_dim // 3
+        out_third = self.nb_filter // 3
         if self.mask_type == 'a':
-            mask[:out_third,:,0,0] = 0
-            mask[out_third:2*out_third,in_third:,center_row,center_col] = 0
-            mask[2*out_third:3*out_third,2*in_third:,center_row,center_col] = 0
+            mask[:out_third, :, 0, 0] = 0
+            mask[out_third:2*out_third, in_third:, center_row, center_col] = 0
+            mask[2*out_third:3*out_third, 2*in_third:, center_row, center_col] = 0
         elif self.mask_type == 'b':
-            mask[:out_third,in_third:,0,0] = 0
-            mask[out_third:2*out_third,2*in_third:,center_row,center_col] = 0
+            mask[:out_third, in_third:, 0, 0] = 0
+            mask[out_third:2*out_third, 2*in_third:, center_row, center_col] = 0
 
         W = self.W * mask
         output = T.nnet.conv2d(x, W, subsample=self.subsample,
@@ -702,17 +703,17 @@ class MaskedConvolution2D(Layer):
 
 class GetColors(Layer):
     def __init__(self, color, **kwargs):
-        assert color in (0,1,2)
+        assert color in (0, 1, 2)
         self.color = color
         super(GetColors, self).__init__(**kwargs)
 
     def call(self, x, mask=None):
         X = K.permute_dimensions(x, (0, 2, 3, 1))
-        return X[:,:,:,(self.color*256):(self.color+1)*256]
+        return X[:, :, :, (self.color*256):(self.color+1)*256]
 
     def get_output_shape_for(self, input_shape):
         output = list(input_shape)
-        return (output[0],output[2],output[3],256)
+        return (output[0], output[2], output[3], 256)
 
 class SoftmaxLayer(Layer):
     def __init__(self, **kwargs):
@@ -722,7 +723,7 @@ class SoftmaxLayer(Layer):
         return (input_shape[0], input_shape[1]*input_shape[2], input_shape[3])
 
     def call(self, x, mask=None):
-        X = K.T.reshape(x,  (-1, K.shape(x)[-1]))
+        X = K.T.reshape(x, (-1, K.shape(x)[-1]))
         y = K.softmax(X)
-        y = K.T.reshape(y, (-1, K.shape(x)[1]*K.shape(x)[2] ,K.shape(x)[-1]))
+        y = K.T.reshape(y, (-1, K.shape(x)[1]*K.shape(x)[2], K.shape(x)[-1]))
         return y
