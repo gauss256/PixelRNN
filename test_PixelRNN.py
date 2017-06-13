@@ -5,12 +5,12 @@ arxiv.org/pdf/1601.06759
 Copyright Shir Gur, 2016
 me@gurshir.com
 """
-# pylint: disable=C0103,C0301,C0111,E0401,E1102
+# pylint: disable=C0103,C0301,C0111,E0401,E1102,R0902,R0914
 
 
 import theano
-import theano.sandbox.cuda
-theano.sandbox.cuda.use("gpu0")
+# import theano.sandbox.cuda
+# theano.sandbox.cuda.use("gpu0")
 
 from keras.datasets import cifar10
 
@@ -19,11 +19,12 @@ import numpy as np
 from keras.callbacks import LearningRateScheduler
 from keras.models import Model
 from keras.layers import Input, Convolution2D
-from keras.engine import merge
+from keras.layers import merge
 from keras.optimizers import RMSprop
 from keras.regularizers import l2
 from Layers import MaskedConvolution2D, SoftmaxLayer, GetColors, DiagLSTM, PyramidSTM
 from Utils import  image_categorical_crossentropy
+
 
 class PixelRNN(object):
     def __init__(self):
@@ -48,7 +49,7 @@ class PixelRNN(object):
 
         self.comp_net = None
 
-        self.build_data_cifar10()
+        # self.build_data_cifar10()
 
     def build_data_cifar10(self):
         print("Loading data...")
@@ -268,7 +269,7 @@ class PixelRNN(object):
         print("Saving weights...")
         self.comp_net.save_weights('Data/comp_model.h5', overwrite=True)
 
-    def scd(self, x):
+    def scd(self, x):  # pylint: disable=R0201
         if x%5 == 0:
             return float(0.1)
         if x%3 == 0:

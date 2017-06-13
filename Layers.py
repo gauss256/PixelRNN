@@ -13,7 +13,7 @@ from theano import tensor as T
 from keras.engine import Layer, InputSpec
 from keras import backend as K
 from keras.backend.common import  _FLOATX
-from keras import activations, initializations, regularizers, constraints
+from keras import activations, initializers, regularizers, constraints
 import keras.layers.convolutional as K_conv
 import Utils
 
@@ -61,11 +61,15 @@ class ColRecurrent(Layer):
         return []
 
     def get_initial_states(self, x):
+        #!!!
         init_h = self.init_h.dimshuffle(('x', 0, 1))
-        init_h = T.extra_ops.repeat(init_h, x.shape[0], axis=0)
+        # init_h = T.extra_ops.repeat(init_h, x.shape[0], axis=0)
+        init_h = K.repeat_elements(init_h, x.shape[0], axis=0)
 
         init_c = self.init_c.dimshuffle(('x', 0, 1))
-        init_c = T.extra_ops.repeat(init_c, x.shape[0], axis=0)
+        # init_c = T.extra_ops.repeat(init_c, x.shape[0], axis=0)
+        init_c = K.repeat(init_c, x.shape[0], axis=0)
+        #!!!
 
         return [init_h, init_c]
 
@@ -143,9 +147,9 @@ class PyramidSTM(ColRecurrent):
         self.subsample = sub_sample
         self.direction = direction
 
-        self.init = initializations.get(init)
-        self.inner_init = initializations.get(inner_init)
-        self.forget_bias_init = initializations.get(forget_bias_init)
+        self.init = initializers.get(init)
+        self.inner_init = initializers.get(inner_init)
+        self.forget_bias_init = initializers.get(forget_bias_init)
         self.activation = activations.get(activation)
         self.inner_activation = activations.get(inner_activation)
         self.W_regularizer = regularizers.get(W_regularizer)
@@ -244,8 +248,8 @@ class PyramidSTM(ColRecurrent):
 
         mask = np.ones(filter_shape, dtype=_FLOATX)
 
-        in_third = self.input_dim//3
-        out_third = self.nb_filter//3
+        in_third = self.input_dim // 3
+        out_third = self.nb_filter // 3
         mask[:out_third, in_third:, 0, 0] = 0
         mask[out_third:2*out_third, 2*in_third:, 0, 0] = 0
 
@@ -341,9 +345,9 @@ class DiagLSTM(ColRecurrent):
         self.subsample = sub_sample
         self.direction = direction
 
-        self.init = initializations.get(init)
-        self.inner_init = initializations.get(inner_init)
-        self.forget_bias_init = initializations.get(forget_bias_init)
+        self.init = initializers.get(init)
+        self.inner_init = initializers.get(inner_init)
+        self.forget_bias_init = initializers.get(forget_bias_init)
         self.activation = activations.get(activation)
         self.inner_activation = activations.get(inner_activation)
         self.W_regularizer = regularizers.get(W_regularizer)
@@ -543,7 +547,7 @@ class DiagLSTM(ColRecurrent):
 class MaskedConvolution2D(Layer):
     def __init__(self, nb_filter, nb_row, nb_col, mask_type=None, direction='Down',
                  init='glorot_uniform', activation='linear', weights=None,
-                 border_mode='valid', subsample=(1, 1), dim_ordering='th',
+                 border_mode='valid', subsample=(1, 1), dim_ordering='tf',
                  W_regularizer=None, b_regularizer=None, activity_regularizer=None,
                  W_constraint=None, b_constraint=None,
                  bias=True, **kwargs):
@@ -554,7 +558,10 @@ class MaskedConvolution2D(Layer):
         self.nb_filter = nb_filter
         self.nb_row = nb_row
         self.nb_col = nb_col
-        self.init = initializations.get(init, dim_ordering=dim_ordering)
+        #!!!
+        # self.init = initializers.get(init, dim_ordering=dim_ordering)
+        self.init = initializers.get(init)
+        #!!!
         self.activation = activations.get(activation)
         assert border_mode in {'valid', 'same'}, 'border_mode must be in {valid, same}'
         self.border_mode = border_mode
@@ -562,6 +569,10 @@ class MaskedConvolution2D(Layer):
         assert dim_ordering in {'tf', 'th'}, 'dim_ordering must be in {tf, th}'
         self.dim_ordering = dim_ordering
 
+        #!!!
+        print(W_regularizer)
+        exit(0)
+        #!!!
         self.W_regularizer = regularizers.get(W_regularizer)
         self.b_regularizer = regularizers.get(b_regularizer)
         self.activity_regularizer = regularizers.get(activity_regularizer)
@@ -585,7 +596,10 @@ class MaskedConvolution2D(Layer):
             self.W_shape = (self.nb_row, self.nb_col, stack_size, self.nb_filter)
         else:
             raise Exception('Invalid dim_ordering: ' + self.dim_ordering)
-        self.W = self.init(self.W_shape, name='{}_W'.format(self.name))
+        #!!!
+        # self.W = self.init(self.W_shape, name='{}_W'.format(self.name))
+        self.W = self.init(self.W_shape)
+        #!!!
         if self.bias:
             self.b = K.zeros((self.nb_filter,), name='{}_b'.format(self.name))
             self.trainable_weights = [self.W, self.b]
